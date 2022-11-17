@@ -1,0 +1,228 @@
+trigger:
+  none
+
+######################
+#DECLARE PARAMETERS:-
+######################
+parameters:
+- name: SUBSCRIPTIONID
+  displayName: Subscription ID Details Follow Below:-
+  type: string
+  default: 210e66cb-55cf-424e-8daa-6cad804ab604
+  values:
+  - 210e66cb-55cf-424e-8daa-6cad804ab604
+
+- name: RGNAME
+  displayName: Please Provide the Resource Group Name:-
+  type: object
+  default: 
+
+- name: STORAGEACCOUNTNAME
+  displayName: Please Provide the Storage Account Name:-
+  type: object
+  default:
+
+- name: KVNAME
+  displayName: Please Provide the Keyvault Name:-
+  type: object
+  default: 
+
+- name: SFTP
+  displayName: Enable or Disable SFTP:-
+  type: string
+  default: Enable
+  values:
+  - Enable 
+
+- name: SFTPUSER
+  displayName: Please Provide the SFTP Username:-
+  type: object
+  default:
+
+######################
+#DECLARE VARIABLES:-
+######################
+variables:
+  ServiceConnection: amcloud-cicd-service-connection
+  BuildAgent: windows-latest
+  Permissions: rwdlc 
+  Service: blob
+  SSHPasswd: true
+
+#########################
+# Declare Build Agents:-
+#########################
+pool:
+  vmImage: $(BuildAgent)
+
+###################
+# Declare Stages:-
+###################
+
+stages:
+
+- stage: VALIDATE_RG_STORAGE_ACCOUNT_HIERARCHICAL_NAMESPACE_AND_KV 
+  jobs:
+  - job: VALIDATE_RG_STORAGE_ACCOUNT_HIERARCHICAL_NAMESPACE_AND_KV 
+    displayName: VALIDATE RG STORAGE ACCOUNT HIERARCHICAL_NAMESPACE & KV
+    steps:
+    - task: AzureCLI@2
+      displayName: SET AZURE ACCOUNT
+      inputs:
+        azureSubscription: $(ServiceConnection)
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          az --version
+          az account set --subscription ${{ parameters.SUBSCRIPTIONID }}
+          az account show  
+    - task: AzureCLI@2
+      displayName: VALIDATE RG STORAGE ACCOUNT HIERARCHICAL_NAMESPACE & RG
+      inputs:
+        azureSubscription: $(ServiceConnection)
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |      
+          $i = az group exists -n ${{ parameters.RGNAME }}
+            if ($i -eq "true") {
+              echo "#####################################################"
+              echo "Resource Group ${{ parameters.RGNAME }} exists!!!"
+              echo "#####################################################"
+              $j = az storage account check-name --name ${{ parameters.STORAGEACCOUNTNAME }} --query "reason" --out tsv
+                if ($j -eq "AlreadyExists") {
+                  echo "###################################################################"
+                  echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} exists!!!"
+                  echo "###################################################################"
+                  $k = az storage account show -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --query [isHnsEnabled] --output tsv
+                    if ($k -eq "true") {
+                      echo "###################################################################"
+                      echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} has Heirarchical Namespace Enabled!!!"
+                      echo "###################################################################"
+                      $l = az keyvault list --resource-group ${{ parameters.RGNAME }} --query [].name -o tsv		
+                        if ($l -eq "${{ parameters.KVNAME }}") {
+                          echo "###################################################################"
+                          echo "Key Vault ${{ parameters.KVNAME }} exists!!!"
+                          echo "###################################################################"
+                        }
+                        else {
+                          echo "###################################################################################################"
+                          echo "Key Vault ${{ parameters.KVNAME }} DOES NOT EXISTS in Resource Group ${{ parameters.RGNAME }}!!!"
+                          echo "###################################################################################################"
+                          exit 1
+                        }
+                    }  
+                    else {
+                      echo "#######################################################################################################################"
+                      echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} DOES NOT have Heirarchical Namespace Enabled!!!!!!"
+                      echo "#######################################################################################################################"
+                      exit 1
+                    }              
+                }
+                else {
+                  echo "#######################################################################################################################"
+                  echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} DOES NOT EXISTS in Resource Group ${{ parameters.RGNAME }}!!!"
+                  echo "#######################################################################################################################"
+                  exit 1
+                }
+            }
+            else {
+              echo "#############################################################"
+              echo "Resource Group ${{ parameters.RGNAME }} DOES NOT EXISTS!!!"
+              echo "#############################################################"
+              exit 1
+            }
+
+- stage: SFTP_ENABLE
+  condition: |
+     and(succeeded(),
+       eq('${{ parameters.SFTP }}', 'Enable')
+     ) 
+  jobs:
+  - job: SFTP_ENABLE 
+    displayName: ENABLE SFTP & STORE CREDENTIALS IN KV
+    steps:
+    - task: AzureCLI@2
+      displayName: ENABLE SFTP & STORE CREDENTIALS IN KV
+      inputs:
+        azureSubscription: $(ServiceConnection)
+        scriptType: ps
+        scriptLocation: inlineScript
+        inlineScript: |
+          $i = az storage account show -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --query [isSftpEnabled] --output tsv
+            if ($i -eq "None") {
+              az storage account update -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --enable-sftp=true
+              echo "#####################################################"
+              echo "SFTP Enabled for Storage Account ${{ parameters.STORAGEACCOUNTNAME }} in the Resource Group ${{ parameters.RGNAME }}!!!"
+              echo "#####################################################"
+              echo "Validating if SFTP Local User Home Directory Exists!!!"
+              echo "#####################################################"
+              $j = az storage container exists --account-name ${{ parameters.STORAGEACCOUNTNAME }} --account-key $(az storage account keys list -g ${{ parameters.RGNAME }} -n ${{ parameters.STORAGEACCOUNTNAME }} --query [0].value -o tsv) --name ${{ parameters.SFTPUSER }}-dir --query "exists" --out tsv 
+                if ($j -ne "true") {
+                  az storage container create --name ${{ parameters.SFTPUSER }}-dir --account-key $(az storage account keys list -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --query [0].value -o tsv) --account-name ${{ parameters.STORAGEACCOUNTNAME }}
+                  echo "#####################################################"
+                  echo "SFTP User Home Directory Container ${{ parameters.SFTPUSER }}-dir created successfully!!!"
+                  echo "#####################################################"
+                  echo "Validating if SFTP Local User Exists!!!"
+                  echo "#####################################################"
+                  $k = az storage account local-user show --account-name ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} -n ${{ parameters.SFTPUSER }} --query [name] --output tsv
+                    if ($k -ne "${{ parameters.SFTPUSER }}") {
+                      az storage account local-user create --account-name ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} -n ${{ parameters.SFTPUSER }} --home-directory ${{ parameters.SFTPUSER }}-dir --permission-scope permissions=$(Permissions) service=$(Service) resource-name=${{ parameters.SFTPUSER }}-dir --has-ssh-password $(SSHPasswd)
+                      $sftppasswd = az storage account local-user regenerate-password --account-name ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} -n ${{ parameters.SFTPUSER }} --query [sshPassword] -o tsv
+                      az keyvault secret set --name ${{ parameters.SFTPUSER }}-username --vault-name ${{ parameters.KVNAME }} --value ${{ parameters.SFTPUSER }}
+                      az keyvault secret set --name ${{ parameters.SFTPUSER }}-passwd --vault-name ${{ parameters.KVNAME }} --value $sftppasswd
+                      az keyvault secret set --name ${{ parameters.SFTPUSER }}-connection-string --vault-name ${{ parameters.KVNAME }} --value "${{ parameters.STORAGEACCOUNTNAME }}.${{ parameters.SFTPUSER }}@${{ parameters.STORAGEACCOUNTNAME }}.blob.core.windows.net"
+                      echo "#####################################################"
+                      echo "SFTP Local User ${{ parameters.SFTPUSER }} created successfully and Credentials Stored in ${{ parameters.KVNAME }}!!!"
+                      echo "#####################################################"
+                    }
+                    else {
+                      echo "#####################################################"
+                      echo "SFTP Local User ${{ parameters.SFTPUSER }} already Exists!!!"
+                      echo "#####################################################"
+                      exit 1
+                    }
+                }
+                else {
+                  echo "#####################################################"
+                  echo "SFTP User Home Directory Container ${{ parameters.SFTPUSER }}-dir already Exists!!!"
+                  echo "#####################################################"
+                  exit 1
+                }
+            }
+          else {
+            echo "#####################################################"
+            echo "SFTP is already Enabled for Storage Account ${{ parameters.STORAGEACCOUNTNAME }} in the Resource Group ${{ parameters.RGNAME }}!!!"
+            echo "#####################################################"
+              $l = az storage container exists --account-name ${{ parameters.STORAGEACCOUNTNAME }} --account-key $(az storage account keys list -g ${{ parameters.RGNAME }} -n ${{ parameters.STORAGEACCOUNTNAME }} --query [0].value -o tsv) --name ${{ parameters.SFTPUSER }}-dir --query "exists" --out tsv 
+                if ($l -ne "true") {
+                  az storage container create --name ${{ parameters.SFTPUSER }}-dir --account-key $(az storage account keys list -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --query [0].value -o tsv) --account-name ${{ parameters.STORAGEACCOUNTNAME }}
+                  echo "#####################################################"
+                  echo "SFTP User Home Directory Container ${{ parameters.SFTPUSER }}-dir created successfully!!!"
+                  echo "#####################################################"
+                  echo "Validating if SFTP Local User Exists!!!"
+                  echo "#####################################################"
+                  $m = az storage account local-user show --account-name ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} -n ${{ parameters.SFTPUSER }} --query [name] --output tsv
+                    if ($m -ne "${{ parameters.SFTPUSER }}") {
+                      az storage account local-user create --account-name ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} -n ${{ parameters.SFTPUSER }} --home-directory ${{ parameters.SFTPUSER }}-dir --permission-scope permissions=$(Permissions) service=$(Service) resource-name=${{ parameters.SFTPUSER }}-dir --has-ssh-password $(SSHPasswd)
+                      $sftppasswd = az storage account local-user regenerate-password --account-name ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} -n ${{ parameters.SFTPUSER }} --query [sshPassword] -o tsv
+                      az keyvault secret set --name ${{ parameters.SFTPUSER }}-username --vault-name ${{ parameters.KVNAME }} --value ${{ parameters.SFTPUSER }}
+                      az keyvault secret set --name ${{ parameters.SFTPUSER }}-passwd --vault-name ${{ parameters.KVNAME }} --value $sftppasswd
+                      az keyvault secret set --name ${{ parameters.SFTPUSER }}-connection-string --vault-name ${{ parameters.KVNAME }} --value "${{ parameters.STORAGEACCOUNTNAME }}.${{ parameters.SFTPUSER }}@${{ parameters.STORAGEACCOUNTNAME }}.blob.core.windows.net"
+                      echo "#####################################################"
+                      echo "SFTP Local User ${{ parameters.SFTPUSER }} created successfully and Credentials Stored in ${{ parameters.KVNAME }}!!!"
+                      echo "#####################################################"
+                    }
+                    else {
+                      echo "#####################################################"
+                      echo "SFTP Local User ${{ parameters.SFTPUSER }} already Exists!!!"
+                      echo "#####################################################"
+                      exit 1
+                    }
+                }
+                else {
+                  echo "#####################################################"
+                  echo "SFTP User Home Directory Container ${{ parameters.SFTPUSER }}-dir already Exists!!!"
+                  echo "#####################################################"
+                  exit 1
+                }  
+          }
