@@ -96,7 +96,7 @@ stages:
                   $k = az storage account show -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --query [isHnsEnabled] --output tsv
                     if ($k -eq "true") {
                       echo "###################################################################"
-                      echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} has Heirarchical Namespace Enabled!!!"
+                      echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} has Hierarchical Namespace Enabled!!!"
                       echo "###################################################################"
                       $l = az keyvault list --resource-group ${{ parameters.RGNAME }} --query [].name -o tsv		
                         if ($l -eq "${{ parameters.KVNAME }}") {
@@ -113,7 +113,7 @@ stages:
                     }  
                     else {
                       echo "#######################################################################################################################"
-                      echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} DOES NOT have Heirarchical Namespace Enabled!!!!!!"
+                      echo "Storage Account ${{ parameters.STORAGEACCOUNTNAME }} DOES NOT have Hierarchical Namespace Enabled!!!!!!"
                       echo "#######################################################################################################################"
                       exit 1
                     }              
@@ -149,7 +149,7 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           $i = az storage account show -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --query [isSftpEnabled] --output tsv
-            if ($i -eq "None") {
+            if ($i -eq "false") {
               az storage account update -n ${{ parameters.STORAGEACCOUNTNAME }} -g ${{ parameters.RGNAME }} --enable-sftp=true
               echo "#####################################################"
               echo "SFTP Enabled for Storage Account ${{ parameters.STORAGEACCOUNTNAME }} in the Resource Group ${{ parameters.RGNAME }}!!!"
