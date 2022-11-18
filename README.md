@@ -35,11 +35,6 @@ The YAML Pipeline is tested on __WINDOWS BUILD AGENT__ Only!!!
 5. Azure Resource Manager Service Connection in Azure DevOps.
 
 
-| __CODE REPOSITORY:-__ |
-| --------- |
-| {% github arindam0310018/18-Nov-2022-DevOps__Validate-Enable-SFTP %} |
-
-
 | __HOW DOES MY CODE PLACEHOLDER LOOKS LIKE:-__ |
 | --------- |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/yyl4imogo0q7f2czygzf.png) |
@@ -586,8 +581,7 @@ __NOW ITS TIME TO TEST !!!...__
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/p71ximxv1143kg69mdk5.png) |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/x12uynt9wpkz41a3ull3.jpg) |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nl2lce2pze51d5x2oqx2.jpg) |
-| 
-![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0q1ku884x4g6qfs0akqz.jpg) |
+| ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0q1ku884x4g6qfs0akqz.jpg) |
 
 
 | __TEST CASE #3: SFTP ALREADY ENABLED. LOCAL SSH USER DOES NOT EXISTS BUT PREVIOUSLY CREATED LOCAL SSH USER`S HOME DIRECTORY CONTAINER ALREADY EXISTS:-__ |
@@ -611,8 +605,7 @@ __NOW ITS TIME TO TEST !!!...__
 | --------- |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/x12uynt9wpkz41a3ull3.jpg) |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/nl2lce2pze51d5x2oqx2.jpg) |
-| 
-![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0q1ku884x4g6qfs0akqz.jpg) |
+| ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/0q1ku884x4g6qfs0akqz.jpg) |
 | __DESIRED OUTPUT: ADDITIONAL NEW LOCAL USER IS CREATED WITH HOME DIRECTORY CONTAINER. PASSWORD GENERATED. ALL CREDENTIALS STORED IN KEY VAULT.__ |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/ux2x6qg6ln39pnxcxrco.jpg) |
 | ![Image description](https://dev-to-uploads.s3.amazonaws.com/uploads/articles/vaj22lsv7h0cueyidizq.png) |
